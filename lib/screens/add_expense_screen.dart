@@ -164,18 +164,25 @@ class AddExpenseScreenState extends State<AddExpenseScreen> {
         });
 
         List rules = [];
-        if (!kIsWeb) {
+        // جرب السحابة أولاً إذا كان متصلاً
+        final connected = await _isConnected();
+        if (connected) {
+          try {
+            rules = await supabase
+                .from('distribution_rules')
+                .select('target_beneficiary_id, percentage')
+                .eq('beneficiary_id', row.selectedBeneficiaryId!);
+          } catch (_) {
+            // إذا فشلت السحابة، استخدم المحلي
+          }
+        }
+        // إذا لم تكن هناك نتائج من السحابة أو غير متصل، استخدم المحلي
+        if (rules.isEmpty && !kIsWeb) {
           final db = await dbHelper.database;
           rules = await db.query('distribution_rules',
               where: 'beneficiary_id = ?',
               whereArgs: [row.selectedBeneficiaryId]);
-        } else {
-          rules = await supabase
-              .from('distribution_rules')
-              .select('target_beneficiary_id, percentage')
-              .eq('beneficiary_id', row.selectedBeneficiaryId!);
         }
-
         if (rules.isNotEmpty) {
           for (var rule in rules) {
             final targetId = rule['target_beneficiary_id'] as String;
